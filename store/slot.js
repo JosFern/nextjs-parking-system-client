@@ -14,7 +14,8 @@ export const parkinglotStore = createSlice({
             timeIn: '2022-01-01T08:00:00+08:00',
             currTime: '2022-01-01T08:00:00+08:00',
             totalPayment: 0,
-            status: ''
+            status: '',
+            timeOut: null
         }
     },
     reducers: {
@@ -48,7 +49,7 @@ export const parkinglotStore = createSlice({
         },
 
         calculatePayment: (state, action) => {
-            const { carID, slotNum, slotType, carSize, timeIn } = action.payload
+            const { carID, slotNum, slotType, carSize, timeIn, timeOut } = action.payload
 
             const currTime = new Date();
 
@@ -85,7 +86,8 @@ export const parkinglotStore = createSlice({
                 timeIn,
                 currTime: formatISO(currTime),
                 totalPayment: payment,
-                status: getSlotStatus.status
+                status: getSlotStatus.status,
+                timeOut: timeOut
             }
 
         }

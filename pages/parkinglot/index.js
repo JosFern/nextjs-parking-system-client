@@ -119,7 +119,8 @@ export default function ParkingLot() {
             slotNum: slotInfo.number,
             slotType: slotInfo.type,
             carSize: carInfo.size,
-            timeIn: carInfo.timeIn
+            timeIn: carInfo.timeIn,
+            timeOut: carInfo.timeOut
         }))
 
 
@@ -277,15 +278,26 @@ export default function ParkingLot() {
 
                         </Box>
                     </Box>
-                    <Box>
-                        <Typography className="text-sm font-bold text-gray-500 text-center">
-                            Time Parked:
-                        </Typography>
-                        <Typography className="text-xl font-bold text-gray-800">
-                            {format(parseISO(ps.currentSlot.timeIn), "PPpp")}
-                        </Typography>
-
-                    </Box>
+                    {ps.currentSlot.status === 'leave' &&
+                        <Box>
+                            <Typography className="text-sm font-bold text-gray-500 text-center">
+                                Time Out:
+                            </Typography>
+                            <Typography className="text-xl font-bold text-gray-800">
+                                {format(parseISO(ps.currentSlot.timeOut), "PPpp")}
+                            </Typography>
+                        </Box>
+                    }
+                    {ps.currentSlot.status === 'occupied' &&
+                        <Box>
+                            <Typography className="text-sm font-bold text-gray-500 text-center">
+                                Time Parked:
+                            </Typography>
+                            <Typography className="text-xl font-bold text-gray-800">
+                                {format(parseISO(ps.currentSlot.timeIn), "PPpp")}
+                            </Typography>
+                        </Box>
+                    }
                     <Box>
                         <Typography className="text-sm font-bold text-gray-500 text-center">
                             Current Time:
