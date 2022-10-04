@@ -24,6 +24,7 @@ export default function ParkingLot() {
         entry: '',
     })
 
+    //just initialize slots
     useEffect(() => {
         const initializeReducers = async () => {
             await dispatch(setSlots(slots))
@@ -39,6 +40,7 @@ export default function ParkingLot() {
 
     }, [dispatch])
 
+    //handles form onChange
     const handleChange = (e) => {
         const { name, value } = e.target
         setVehicle({
@@ -47,6 +49,7 @@ export default function ParkingLot() {
         })
     }
 
+    //handles to find near available slot
     const getAvailableSlot = (entry, car) => {
 
         const getSlotsEntryPosition = _.chain(ps.slots)
@@ -64,6 +67,7 @@ export default function ParkingLot() {
         return nearSlot[0]
     }
 
+    //handles to generate unique vehicle id
     const generateID = () => {
 
         const id = Math.floor((Math.random() * 1000) + 1);
@@ -78,6 +82,7 @@ export default function ParkingLot() {
 
     }
 
+    //handles to park vehicle
     const handleParkSubmit = (e) => {
         e.preventDefault()
 
@@ -101,6 +106,7 @@ export default function ParkingLot() {
         })
     }
 
+    //handles to call calculate total payment and opens drawer
     const openDetailsDrawer = (slotNum, carID) => {
         setOpenDrawer(true)
 
@@ -119,24 +125,28 @@ export default function ParkingLot() {
 
     }
 
+    //handles vehicle to unpark/delete vehicle/update slot status
     const handleUnpark = () => {
         dispatch(unparkSlot(ps.currentSlot.number))
         dispatch(deleteVehicle(ps.currentSlot.carID))
         setOpenDrawer(false)
     }
 
+    //handles vehicle leaving and update slot status
     const handleTemporaryLeave = () => {
         dispatch(markLeaveSlot(ps.currentSlot.number))
         dispatch(markLeaveVehicle(ps.currentSlot.carID))
         setOpenDrawer(false)
     }
 
+    //handles vehicle returning and update slot status
     const handleReturn = () => {
         dispatch(markReturnedSlot(ps.currentSlot.number))
         dispatch(markReturnedVehicle(ps.currentSlot.carID))
         setOpenDrawer(false)
     }
 
+    //returns a vehicle data with associated slot for the vehicle table
     const getVehicleTable = (vehicles) => {
         const getAssocSlot = _.map(vehicles, (vehicle) => {
             const slot = _.find(ps.slots, { vehicle: vehicle.id })
@@ -169,6 +179,7 @@ export default function ParkingLot() {
                 </Box>
             </Box>
 
+            {/*  ---------------------MODAL FORM FOR PARKING----------------------*/}
             <Modal
                 open={parkModal}
                 onClose={() => setParkModal(false)}
@@ -212,6 +223,7 @@ export default function ParkingLot() {
             </Modal>
 
 
+            {/*  --------------------------DRAWER DETAILS-------------------*/}
             <Drawer
                 anchor="right"
                 open={isOpenDrawer}
@@ -267,7 +279,7 @@ export default function ParkingLot() {
                     </Box>
                     <Box>
                         <Typography className="text-sm font-bold text-gray-500 text-center">
-                            Time In:
+                            Time Parked:
                         </Typography>
                         <Typography className="text-xl font-bold text-gray-800">
                             {format(parseISO(ps.currentSlot.timeIn), "PPpp")}

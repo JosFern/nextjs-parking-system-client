@@ -34,7 +34,9 @@ export const Vehicle = createSlice({
 
             const car = state.vehicles[index]
 
-            if (differenceInHours(parseISO(car.timeOut), parseISO(car.timeIn)) > 0) {
+            const currTime = new Date()
+
+            if (differenceInHours(currTime, parseISO(car.timeOut)) > 0) {
                 state.vehicles[index] = { ...car, timeIn: formatISO(new Date()), timeOut: null }
             } else {
                 state.vehicles[index] = { ...car, timeOut: null }

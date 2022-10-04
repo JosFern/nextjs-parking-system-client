@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { differenceInDays, differenceInHours, differenceInMinutes, formatISO, getTime, parseISO } from 'date-fns';
+import { differenceInDays, differenceInHours, differenceInMinutes, formatISO, parseISO } from 'date-fns';
 import _ from 'lodash'
 
 export const parkinglotStore = createSlice({
@@ -49,8 +49,6 @@ export const parkinglotStore = createSlice({
 
         calculatePayment: (state, action) => {
             const { carID, slotNum, slotType, carSize, timeIn } = action.payload
-
-            // console.log(carID, slotNum, slotType, carSize, timeIn);
 
             const currTime = new Date();
 
