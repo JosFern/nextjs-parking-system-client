@@ -34,7 +34,16 @@ export default function ParkingLotTable({ vehicles, openDetailsDrawer }) {
                             </TableCell>
                             <TableCell>{format(parseISO(row.timeIn), 'p')}</TableCell>
                             <TableCell>{row.slot}</TableCell>
-                            <TableCell onClick={() => openDetailsDrawer(row.slot, row.id)} align="right"><InfoIcon className={"w-[25px] h-[25px] m-0 cursor-pointer " + (row.timeOut === null ? "text-[#00a8ff]" : "text-[#e1b12c]")} /></TableCell>
+                            <TableCell
+                                onClick={() => openDetailsDrawer(row.slot, row.id)}
+                                align="right"
+                            >
+                                <InfoIcon
+                                    className={"w-[25px] h-[25px] m-0 cursor-pointer " +
+                                        (row.timeOut === null ? "text-[#00a8ff]" : "text-[#e1b12c]")
+                                    }
+                                />
+                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

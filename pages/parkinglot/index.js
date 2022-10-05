@@ -3,7 +3,7 @@ import slots from '../../_sample-data/slots'
 import _ from 'lodash'
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from 'react-redux';
-import { calculatePayment, markLeaveSlot, markReturnedSlot, setSlots, unparkSlot, updateSlot } from "../../store/slot";
+import { calculatePayment, markLeaveSlot, markReturnedSlot, setSlots, unoccupySlot, occupySlot } from "../../store/slot";
 import SlotGrid from "../components/slotGrid";
 import ParkingLotTable from "../components/parkinglotTable";
 import { addVehicle, deleteVehicle, markLeaveVehicle, markReturnedVehicle, setVehicles } from "../../store/vehicle";
@@ -27,11 +27,12 @@ export default function ParkingLot() {
     //just initialize slots
     useEffect(() => {
         const initializeReducers = async () => {
+            //sample data
             await dispatch(setSlots(slots))
             dispatch(setVehicles([{
                 id: 1,
                 size: 0,
-                timeIn: "2022-10-03T14:00:00+08:00",
+                timeIn: "2022-10-05T14:00:00+08:00",
                 timeOut: null
             }]))
         }
@@ -41,7 +42,7 @@ export default function ParkingLot() {
     }, [dispatch])
 
     //handles form onChange
-    const handleChange = (e) => {
+    const handleChange = async (e) => {
         const { name, value } = e.target
         setVehicle({
             ...vehicle,
@@ -49,36 +50,14 @@ export default function ParkingLot() {
         })
     }
 
-    //handles to find near available slot
-    const getAvailableSlot = (entry, car) => {
-
-        const getSlotsEntryPosition = _.chain(ps.slots)
-            .filter((slot) => slot.vehicle === null && car <= slot.type)
-            .map(function (slot) {
-                return slot.position[entry]
-            }).value()
-
-        const nearSlot = _.filter(ps.slots, (slot) =>
-            slot.position[entry] === Math.min(...getSlotsEntryPosition) &&
-            slot.vehicle === null &&
-            car <= slot.type
-        )
-
-        return nearSlot[0]
-    }
-
     //handles to generate unique vehicle id
-    const generateID = () => {
+    const generateID = (id) => {
 
-        const id = Math.floor((Math.random() * 1000) + 1);
+        const isExist = _.find(car.vehicles, { id })
 
-        const isExist = _.find(car.vehicles, { carID: id })
+        if (!isExist) return id
 
-        if (isExist) {
-            generateID()
-        } else {
-            return id
-        }
+        return generateID(id + 1)
 
     }
 
@@ -86,16 +65,12 @@ export default function ParkingLot() {
     const handleParkSubmit = (e) => {
         e.preventDefault()
 
-
-
         const { type, entry } = vehicle
 
-        const carID = generateID()
-
-        const getSlot = getAvailableSlot(Number(entry), Number(type))
+        const carID = generateID(Math.floor((Math.random() * 1000) + 1))
 
         dispatch(addVehicle({ id: carID, size: Number(type), timeIn: formatISO(new Date()), timeOut: null }))
-        dispatch(updateSlot({ carID, slot: getSlot.number }))
+        dispatch(occupySlot({ carID, entry: Number(entry), car: Number(type) }))
 
         setParkModal(false)
 
@@ -128,7 +103,7 @@ export default function ParkingLot() {
 
     //handles vehicle to unpark/delete vehicle/update slot status
     const handleUnpark = () => {
-        dispatch(unparkSlot(ps.currentSlot.number))
+        dispatch(unoccupySlot(ps.currentSlot.number))
         dispatch(deleteVehicle(ps.currentSlot.carID))
         setOpenDrawer(false)
     }

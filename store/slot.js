@@ -16,21 +16,34 @@ export const parkinglotStore = createSlice({
             totalPayment: 0,
             status: '',
             timeOut: null
-        }
+        },
     },
     reducers: {
         setSlots: (state, action) => {
             state.slots = [...action.payload]
         },
 
-        updateSlot: (state, action) => {
-            const { carID, slot } = action.payload
-            const index = _.findIndex(state.slots, { number: slot })
+        occupySlot: (state, action) => {
+            const { carID, entry, car } = action.payload
+
+            const getSlotsEntryPosition = _.chain(state.slots)
+                .filter((slot) => slot.vehicle === null && car <= slot.type)
+                .map(function (slot) {
+                    return slot.position[entry]
+                }).value()
+
+            const nearSlot = _.filter(state.slots, (slot) =>
+                slot.position[entry] === Math.min(...getSlotsEntryPosition) &&
+                slot.vehicle === null &&
+                car <= slot.type
+            )
+
+            const index = _.findIndex(state.slots, { number: nearSlot[0].number })
 
             state.slots[index] = { ...state.slots[index], vehicle: carID, status: 'occupied' }
         },
 
-        unparkSlot: (state, action) => {
+        unoccupySlot: (state, action) => {
             const index = _.findIndex(state.slots, { number: action.payload })
 
             state.slots[index] = { ...state.slots[index], vehicle: null, status: 'available' }
@@ -46,6 +59,25 @@ export const parkinglotStore = createSlice({
             const index = _.findIndex(state.slots, { number: action.payload })
 
             state.slots[index] = { ...state.slots[index], status: 'occupied' }
+        },
+
+        getAvailableSlot: (state, action) => {
+            const { entry, car } = action.payload
+
+            const getSlotsEntryPosition = _.chain(state.slots)
+                .filter((slot) => slot.vehicle === null && car <= slot.type)
+                .map(function (slot) {
+                    return slot.position[entry]
+                }).value()
+
+            const nearSlot = _.filter(state.slots, (slot) =>
+                slot.position[entry] === Math.min(...getSlotsEntryPosition) &&
+                slot.vehicle === null &&
+                car <= slot.type
+            )
+
+            state.availableSlot = nearSlot[0].number
+
         },
 
         calculatePayment: (state, action) => {
@@ -69,7 +101,7 @@ export const parkinglotStore = createSlice({
 
             if (hoursDiff >= exceedHrRate) payment += (hoursDiff - exceedHrRate) * carCharge
 
-            if (dayDiff > 0) payment -= ((dayDiff * (24 - exceedHrRate)) * carCharge)
+            if (dayDiff > 0) payment = ((hoursDiff - (dayDiff * 24)) * carCharge) + (fullChunk * dayDiff)
 
             if (hoursDiff >= exceedHrRate && Math.round(minutesDiff / 60) === 1) payment += carCharge
             //oks nani siya
@@ -94,6 +126,6 @@ export const parkinglotStore = createSlice({
     }
 })
 
-export const { setSlots, updateSlot, unparkSlot, markLeaveSlot, markReturnedSlot, calculatePayment } = parkinglotStore.actions
+export const { setSlots, occupySlot, unoccupySlot, markLeaveSlot, markReturnedSlot, calculatePayment } = parkinglotStore.actions
 
 export default parkinglotStore.reducer
