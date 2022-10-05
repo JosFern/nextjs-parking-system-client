@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { calculatePayment, markLeaveSlot, markReturnedSlot, setSlots, unoccupySlot, occupySlot } from "../../store/slot";
 import SlotGrid from "../components/slotGrid";
 import ParkingLotTable from "../components/parkinglotTable";
-import { addVehicle, deleteVehicle, markLeaveVehicle, markReturnedVehicle, setVehicles } from "../../store/vehicle";
+import { parkVehicle, unparkVehicle, markLeaveVehicle, markReturnedVehicle, setVehicles } from "../../store/vehicle";
 import { format, formatISO, parseISO } from "date-fns";
 
 
@@ -69,7 +69,7 @@ export default function ParkingLot() {
 
         const carID = generateID(Math.floor((Math.random() * 1000) + 1))
 
-        dispatch(addVehicle({ id: carID, size: Number(type), timeIn: formatISO(new Date()), timeOut: null }))
+        dispatch(parkVehicle({ id: carID, size: Number(type), timeIn: formatISO(new Date()), timeOut: null }))
         dispatch(occupySlot({ carID, entry: Number(entry), car: Number(type) }))
 
         setParkModal(false)
@@ -104,7 +104,7 @@ export default function ParkingLot() {
     //handles vehicle to unpark/delete vehicle/update slot status
     const handleUnpark = () => {
         dispatch(unoccupySlot(ps.currentSlot.number))
-        dispatch(deleteVehicle(ps.currentSlot.carID))
+        dispatch(unparkVehicle(ps.currentSlot.carID))
         setOpenDrawer(false)
     }
 
@@ -134,14 +134,17 @@ export default function ParkingLot() {
 
     return (
         <Box className="flex justify-start items-start gap-4 min-h-screen text-center text-gray-800 bg-[#f0f2f5] ">
-            <Box className="bg-white min-h-screen  w-[400px]">
+            <Box className="flex flex-col bg-white min-h-screen gap-3 w-[400px] justify-start items-center">
                 <Typography className="text-gray-800 font-bold text-2xl">
                     Parking Allocation System
                 </Typography>
-                <Button onClick={() => setParkModal(true)} className="bg-[#27ae60]" variant="contained" color='success'>
+                <Button onClick={() => setParkModal(true)} className="bg-[#27ae60] w-[30%]" variant="contained" color='success'>
                     Park
                 </Button>
-                <ParkingLotTable vehicles={useMemo(() => getVehicleTable(car.vehicles), [car.vehicles])} openDetailsDrawer={openDetailsDrawer} />
+                <Box className="h-[80vh] overflow-auto">
+                    <ParkingLotTable vehicles={useMemo(() => getVehicleTable(car.vehicles), [car.vehicles])} openDetailsDrawer={openDetailsDrawer} />
+
+                </Box>
             </Box>
             <Box className="flex flex-col items-start">
                 <Typography className="text-gray-800 font-bold text-2xl">Parking Lot Overview</Typography>

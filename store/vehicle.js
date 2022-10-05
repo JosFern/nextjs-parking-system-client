@@ -11,11 +11,11 @@ export const Vehicle = createSlice({
             state.vehicles = [...action.payload]
         },
 
-        addVehicle: (state, action) => {
+        parkVehicle: (state, action) => {
             state.vehicles.push(action.payload)
         },
 
-        deleteVehicle: (state, action) => {
+        unparkVehicle: (state, action) => {
             const index = _.findIndex(state.vehicles, { id: action.payload })
 
             state.vehicles.splice(index, 1)
@@ -45,6 +45,6 @@ export const Vehicle = createSlice({
     }
 })
 
-export const { setVehicles, addVehicle, deleteVehicle, markLeaveVehicle, markReturnedVehicle } = Vehicle.actions
+export const { setVehicles, parkVehicle, unparkVehicle, markLeaveVehicle, markReturnedVehicle } = Vehicle.actions
 
 export default Vehicle.reducer
