@@ -13,22 +13,22 @@ export default function SlotGrid({ slots, openDetailsDrawer }) {
                 {_.map(slots, (slot) => (
                     <Box
                         className="flex w-[50px] my-1 h-[20px] justify-start items-center "
-                        key={slot.number}
+                        key={slot.id}
                     >
                         <Box
                             component="button"
-                            onClick={() => openDetailsDrawer(slot.number, slot.vehicle)}
-                            disabled={slot.vehicle === null}
+                            onClick={() => openDetailsDrawer(slot.slotNumber, slot.vehicle)}
+                            disabled={slot.vehicle === ""}
                             className={
                                 "flex justify-center items-center rounded " +
-                                (slot.type === 2 ? "w-[100%] mr-2 " : slot.type === 1 ?
+                                (slot.slotType === 2 ? "w-[100%] mr-2 " : slot.slotType === 1 ?
                                     'w-[80%] ' : 'w-[70%] ') + (slot.status === 'leave' ?
                                         'bg-[#e1b12c]' : slot.status === 'available' ?
                                             "bg-[#192a56]" : 'bg-[#c23616] cursor-pointer')
                             }
                         >
                             <Typography className=" font-bold text-sm tracking-wider m-1">
-                                {slot.number}
+                                {slot.slotNumber}
                             </Typography>
                         </Box>
                     </Box>

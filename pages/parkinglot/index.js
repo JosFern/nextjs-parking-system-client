@@ -1,13 +1,14 @@
-import { Box, Button, Modal, Typography, FormControl, InputLabel, Select, MenuItem, Drawer } from "@mui/material";
+import { Box, Button, Modal, Typography, FormControl, InputLabel, Select, MenuItem, Drawer, TextField } from "@mui/material";
 import slots from '../../_sample-data/slots'
 import _ from 'lodash'
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from 'react-redux';
-import { calculatePayment, markLeaveSlot, markReturnedSlot, setSlots, unoccupySlot, occupySlot } from "../../store/slot";
+import { calculatePayment, markLeaveSlot, markReturnedSlot, setSlots, unoccupySlot, occupySlot, setAvailableSlot, setCurrentSlot } from "../../store/slot";
 import SlotGrid from "../components/slotGrid";
 import ParkingLotTable from "../components/parkinglotTable";
 import { parkVehicle, unparkVehicle, markLeaveVehicle, markReturnedVehicle, setVehicles } from "../../store/vehicle";
 import { format, formatISO, parseISO } from "date-fns";
+import { axiosBase, decryptParams, encryptParams } from "../../util/authToken";
 
 
 export default function ParkingLot() {
@@ -20,28 +21,62 @@ export default function ParkingLot() {
     const [isOpenDrawer, setOpenDrawer] = useState(false)
 
     const [vehicle, setVehicle] = useState({
-        type: '',
+        plateNo: '',
+        vehicleType: '',
         entry: '',
     })
 
-    //just initialize slots
     useEffect(() => {
-        const initializeReducers = async () => {
-            //sample data
-            await dispatch(setSlots(slots))
-            dispatch(setVehicles([{
-                id: 1,
-                size: 0,
-                timeIn: "2022-10-05T14:00:00+08:00",
-                timeOut: null
-            }]))
+        const initializeApi = async () => {
+            await getSlots()
+            await getVehicles()
         }
 
-        initializeReducers()
+        initializeApi()
 
+    }, [dispatch, getSlots, getVehicles])
+
+    useEffect(() => {
+        console.log("nigana");
+        if (vehicle.entry && vehicle.vehicleType) {
+            getAvailableSlot(vehicle.entry, vehicle.vehicleType)
+        }
+    }, [vehicle.entry, vehicle.vehicleType, getAvailableSlot])
+
+    //GET AVAILABLE SLOT
+    const getAvailableSlot = useCallback(async (entry, vehicleType) => {
+        const slot = await axiosBase().get(`/slot?entry=${entry}&vehicleType=${vehicleType}`)
+            .catch(err => console.log("error: " + err))
+
+        if (slot.status === 200) {
+            const data = await decryptParams(slot.data)
+            dispatch(setAvailableSlot(data))
+        }
     }, [dispatch])
 
-    //handles form onChange
+    //GET SLOTS DATA
+    const getSlots = useCallback(async () => {
+        const slots = await axiosBase().get('/slot').catch(err => console.log("error: " + err))
+
+        if (slots.status === 200) {
+            const data = await decryptParams(slots.data)
+            console.log(data);
+            dispatch(setSlots(data))
+        }
+    }, [dispatch])
+
+    //GET VEHICLES DATA
+    const getVehicles = useCallback(async () => {
+        const vehicles = await axiosBase().get('/vehicle').catch(err => console.log("error: " + err))
+
+        if (vehicles.status === 200) {
+            const data = await decryptParams(vehicles.data)
+            console.log(data);
+            dispatch(setVehicles(data))
+        }
+    }, [dispatch])
+
+    //HANDLES FORM ONCHANGE
     const handleChange = async (e) => {
         const { name, value } = e.target
         setVehicle({
@@ -62,74 +97,85 @@ export default function ParkingLot() {
     }
 
     //handles to park vehicle
-    const handleParkSubmit = (e) => {
+    const handleParkSubmit = async (e) => {
         e.preventDefault()
 
-        const { type, entry } = vehicle
+        const { vehicleType, plateNo } = vehicle
 
-        const carID = generateID(Math.floor((Math.random() * 1000) + 1))
+        console.log(vehicle);
 
-        dispatch(parkVehicle({ id: carID, size: Number(type), timeIn: formatISO(new Date()), timeOut: null }))
-        dispatch(occupySlot({ carID, entry: Number(entry), car: Number(type) }))
+        const encryptSlotData = await encryptParams(
+            { vehicle: plateNo, status: "occupied" }
+        )
 
-        setParkModal(false)
+        const encryptVehicleData = await encryptParams(
+            { vehicleType: Number(vehicleType), timeIn: formatISO(new Date()), plateNo }
+        )
 
-        setVehicle({
-            ...vehicle,
-            type: '',
-            entry: '',
-        })
+        const occupySlot = await axiosBase().put(`/slot/${ps.availableSlot.id}`, JSON.stringify(encryptSlotData))
+            .catch(err => console.log("error: " + err))
+
+        const parkVehicle = await axiosBase().post(`/vehicle`, JSON.stringify(encryptVehicleData))
+            .catch(err => console.log("error: " + err))
+
+        if (occupySlot.status === 200 && parkVehicle.status === 201) {
+            await getSlots()
+            await getVehicles()
+
+            setParkModal(false)
+
+            setVehicle({
+                ...vehicle,
+                vehicleType: '',
+                entry: '',
+                plateNo: ''
+            })
+        }
     }
 
     //handles to call calculate total payment and opens drawer
-    const openDetailsDrawer = (slotNum, carID) => {
+    const openDetailsDrawer = (slotNumber, plateNo) => {
         setOpenDrawer(true)
 
-        const carInfo = _.find(car.vehicles, { id: carID })
+        const vehicleInfo = _.find(car.vehicles, { plateNo: plateNo })
 
-        const slotInfo = _.find(ps.slots, { number: slotNum })
+        const slotInfo = _.find(ps.slots, { slotNumber: slotNumber })
 
-        dispatch(calculatePayment({
-            carID: carInfo.id,
-            slotNum: slotInfo.number,
-            slotType: slotInfo.type,
-            carSize: carInfo.size,
-            timeIn: carInfo.timeIn,
-            timeOut: carInfo.timeOut
-        }))
-
-
+        dispatch(setCurrentSlot({ ...vehicleInfo, ...slotInfo }))
     }
 
     //handles vehicle to unpark/delete vehicle/update slot status
-    const handleUnpark = () => {
-        dispatch(unoccupySlot(ps.currentSlot.number))
-        dispatch(unparkVehicle(ps.currentSlot.carID))
-        setOpenDrawer(false)
+    const handleUnpark = async () => {
+
+        const encryptSlotData = await encryptParams(
+            { vehicle: "", status: "available" }
+        )
+
+        const unoccupySlot = await axiosBase().put(`/slot/${ps.currentSlot.id}`, JSON.stringify(encryptSlotData))
+            .catch(err => console.log("error: " + err))
+
+        const unparkVehicle = await axiosBase().delete(`/vehicle/${ps.currentSlot.vehicleID}`)
+            .catch(err => console.log("error: " + err))
+
+        if (unoccupySlot.status === 200 && unparkVehicle.status === 200) {
+            await getSlots()
+            await getVehicles()
+            setOpenDrawer(false)
+        }
     }
 
     //handles vehicle leaving and update slot status
     const handleTemporaryLeave = () => {
-        dispatch(markLeaveSlot(ps.currentSlot.number))
-        dispatch(markLeaveVehicle(ps.currentSlot.carID))
-        setOpenDrawer(false)
+        // dispatch(markLeaveSlot(ps.currentSlot.number))
+        // dispatch(markLeaveVehicle(ps.currentSlot.carID))
+        // setOpenDrawer(false)
     }
 
     //handles vehicle returning and update slot status
     const handleReturn = () => {
-        dispatch(markReturnedSlot(ps.currentSlot.number))
-        dispatch(markReturnedVehicle(ps.currentSlot.carID))
-        setOpenDrawer(false)
-    }
-
-    //returns a vehicle data with associated slot for the vehicle table
-    const getVehicleTable = (vehicles) => {
-        const getAssocSlot = _.map(vehicles, (vehicle) => {
-            const slot = _.find(ps.slots, { vehicle: vehicle.id })
-            return { ...vehicle, slot: slot?.number }
-        })
-
-        return getAssocSlot
+        // dispatch(markReturnedSlot(ps.currentSlot.number))
+        // dispatch(markReturnedVehicle(ps.currentSlot.carID))
+        // setOpenDrawer(false)
     }
 
     return (
@@ -142,7 +188,7 @@ export default function ParkingLot() {
                     Park
                 </Button>
                 <Box className="h-[80vh] overflow-auto">
-                    <ParkingLotTable vehicles={useMemo(() => getVehicleTable(car.vehicles), [car.vehicles])} openDetailsDrawer={openDetailsDrawer} />
+                    <ParkingLotTable vehicles={car.vehicles} openDetailsDrawer={openDetailsDrawer} />
 
                 </Box>
             </Box>
@@ -182,12 +228,14 @@ export default function ParkingLot() {
                         </Select>
                     </FormControl>
 
+                    <TextField id="outlined-basic" required fullWidth label="Plate No." variant="outlined" value={vehicle.plateNo} onChange={handleChange} name='plateNo' />
+
                     <FormControl required fullWidth margin='dense'>
                         <InputLabel>Vehicle Type</InputLabel>
                         <Select
-                            name='type'
+                            name='vehicleType'
                             label="Vehicle Type"
-                            value={vehicle.type}
+                            value={vehicle.vehicleType}
                             onChange={handleChange}
                         >
                             <MenuItem value="0">Small</MenuItem>
@@ -195,6 +243,12 @@ export default function ParkingLot() {
                             <MenuItem value="2">Large</MenuItem>
                         </Select>
                     </FormControl>
+
+                    {vehicle.entry && vehicle.vehicleType &&
+                        <Typography variant="h5" component="h2">
+                            Available Slot: <Box variant='h5' className="text-[#192a56] font-semibold tracking-wider" component='span'>{ps.availableSlot.slotNumber}</Box>
+                        </Typography>
+                    }
 
                     <Button type="submit" className="bg-[#27ae60]" variant="contained" color='success'>Park</Button>
                 </Box>
@@ -218,10 +272,10 @@ export default function ParkingLot() {
                     <Box className="flex gap-8 text-center">
                         <Box>
                             <Typography className="text-sm font-bold text-gray-500">
-                                Car ID:
+                                Plate No.:
                             </Typography>
                             <Typography className="text-xl font-bold text-gray-800">
-                                {ps.currentSlot.carID}
+                                {ps.currentSlot.plateNo}
                             </Typography>
 
                         </Box>
@@ -230,7 +284,7 @@ export default function ParkingLot() {
                                 Type:
                             </Typography>
                             <Typography className="text-xl font-bold text-gray-800">
-                                {ps.currentSlot.carSize === 0 ? "Small" : ps.currentSlot.carSize === 1 ? "Medium" : "Large"}
+                                {ps.currentSlot.vehicleType === 0 ? "Small" : ps.currentSlot.vehicleType === 1 ? "Medium" : "Large"}
                             </Typography>
 
                         </Box>
@@ -242,7 +296,7 @@ export default function ParkingLot() {
                                 Slot:
                             </Typography>
                             <Typography className="text-xl font-bold text-gray-800">
-                                {ps.currentSlot.number}
+                                {ps.currentSlot.slotNumber}
                             </Typography>
 
                         </Box>
@@ -287,7 +341,7 @@ export default function ParkingLot() {
                     </Box>
 
                     <Typography className="text-xl font-bold text-gray-800 text-center">
-                        Total Payment: P{ps.currentSlot.totalPayment}
+                        Total Payment: P0
                     </Typography>
 
                     {ps.currentSlot.status === 'occupied' && <Button onClick={handleTemporaryLeave} className="bg-[#e67e22]" variant="contained" color='warning'>

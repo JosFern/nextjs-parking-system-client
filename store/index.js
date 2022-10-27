@@ -1,4 +1,4 @@
-import { combineReducers, configureStore, getDefaultMiddleware } from '@reduxjs/toolkit';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import parkingLotReducer from './slot';
 import vehicleReducer from './vehicle'
 import { persistReducer } from 'redux-persist';

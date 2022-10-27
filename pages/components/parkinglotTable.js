@@ -27,20 +27,20 @@ export default function ParkingLotTable({ vehicles, openDetailsDrawer }) {
                     {_.map(vehicles, (row) => (
                         <TableRow key={row.id}>
                             <TableCell component="th" scope="row">
-                                {row.id}
+                                {row.plateNo}
                             </TableCell>
                             <TableCell>
-                                {row.size === 0 ? "S" : row.size === 1 ? "M" : "L"}
+                                {row.vehicleType === 0 ? "S" : row.vehicleType === 1 ? "M" : "L"}
                             </TableCell>
                             <TableCell>{format(parseISO(row.timeIn), 'p')}</TableCell>
-                            <TableCell>{row.slot}</TableCell>
+                            <TableCell>{row.slotNumber}</TableCell>
                             <TableCell
-                                onClick={() => openDetailsDrawer(row.slot, row.id)}
+                                onClick={() => openDetailsDrawer(row.slotNumber, row.plateNo)}
                                 align="right"
                             >
                                 <InfoIcon
                                     className={"w-[25px] h-[25px] m-0 cursor-pointer " +
-                                        (row.timeOut === null ? "text-[#00a8ff]" : "text-[#e1b12c]")
+                                        (row.timeOut === "" ? "text-[#00a8ff]" : "text-[#e1b12c]")
                                     }
                                 />
                             </TableCell>
