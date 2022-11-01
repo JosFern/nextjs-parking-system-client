@@ -1,6 +1,7 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import parkingLotReducer from './slot';
-import vehicleReducer from './vehicle'
+import vehicleReducer from './vehicle';
+import entryReducer from './entry';
 import { persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 
@@ -11,7 +12,8 @@ const persistConfig = {
 
 const reducer = combineReducers({
     slot: parkingLotReducer,
-    vehicle: vehicleReducer
+    vehicle: vehicleReducer,
+    entry: entryReducer
 })
 
 const persistedReducer = persistReducer(persistConfig, reducer)

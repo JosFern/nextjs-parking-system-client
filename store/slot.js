@@ -40,6 +40,11 @@ export const parkinglotStore = createSlice({
 
             state.currentSlot = { ...state.currentSlot, id, vehicleID, plateNo, slotNumber, slotType, vehicleType, timeIn, timeOut, status, currTime: formatISO(new Date()) }
         },
+        setCurrentSlotPayment: (state, action) => {
+            const { payment } = action.payload
+
+            state.currentSlot.totalPayment = payment
+        },
         //--------------------------------------------------------------
 
         occupySlot: (state, action) => {
@@ -126,6 +131,6 @@ export const parkinglotStore = createSlice({
     }
 })
 
-export const { setSlots, setAvailableSlot, setCurrentSlot, occupySlot, unoccupySlot, markLeaveSlot, markReturnedSlot, calculatePayment } = parkinglotStore.actions
+export const { setSlots, setAvailableSlot, setCurrentSlot, setCurrentSlotPayment, occupySlot, unoccupySlot, markLeaveSlot, markReturnedSlot, calculatePayment } = parkinglotStore.actions
 
 export default parkinglotStore.reducer

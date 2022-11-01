@@ -1,14 +1,15 @@
 import { Box, Button, Modal, Typography, FormControl, InputLabel, Select, MenuItem, Drawer, TextField } from "@mui/material";
-import slots from '../../_sample-data/slots'
-import _ from 'lodash'
-import { useCallback, useEffect, useMemo, useState } from "react";
+import _, { map } from 'lodash'
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from 'react-redux';
-import { calculatePayment, markLeaveSlot, markReturnedSlot, setSlots, unoccupySlot, occupySlot, setAvailableSlot, setCurrentSlot } from "../../store/slot";
-import SlotGrid from "../components/slotGrid";
-import ParkingLotTable from "../components/parkinglotTable";
-import { parkVehicle, unparkVehicle, markLeaveVehicle, markReturnedVehicle, setVehicles } from "../../store/vehicle";
-import { format, formatISO, parseISO } from "date-fns";
+import { setSlots, setAvailableSlot, setCurrentSlot, setCurrentSlotPayment } from "../../store/slot";
+import SlotGrid from "../../components/slotGrid";
+import ParkingLotTable from "../../components/parkinglotTable";
+import { setVehicles } from "../../store/vehicle";
+import { differenceInHours, format, formatISO, parseISO } from "date-fns";
 import { axiosBase, decryptParams, encryptParams } from "../../util/authToken";
+import { setCurrentEntry, setEntries } from "../../store/entry";
+import EntriesTable from "../../components/entries";
 
 
 export default function ParkingLot() {
@@ -16,9 +17,19 @@ export default function ParkingLot() {
     const dispatch = useDispatch()
     const ps = useSelector(state => state.slot)
     const car = useSelector(state => state.vehicle)
+    const gate = useSelector(state => state.entry)
 
     const [parkModal, setParkModal] = useState(false)
     const [isOpenDrawer, setOpenDrawer] = useState(false)
+    const [entryModal, setEntryModal] = useState(false)
+    const [deleteEntryModal, setDeleteEntryModal] = useState(false)
+    const [entryErrorMessage, setEntryErrorMessage] = useState('')
+    const [entryError, setEntryError] = useState(false)
+
+    const [entry, setEntry] = useState({
+        nearestSlot: '',
+        entryGate: ''
+    })
 
     const [vehicle, setVehicle] = useState({
         plateNo: '',
@@ -30,11 +41,12 @@ export default function ParkingLot() {
         const initializeApi = async () => {
             await getSlots()
             await getVehicles()
+            await getEntries()
         }
 
         initializeApi()
 
-    }, [dispatch, getSlots, getVehicles])
+    }, [dispatch, getSlots, getVehicles, getEntries])
 
     useEffect(() => {
         console.log("nigana");
@@ -60,7 +72,6 @@ export default function ParkingLot() {
 
         if (slots.status === 200) {
             const data = await decryptParams(slots.data)
-            console.log(data);
             dispatch(setSlots(data))
         }
     }, [dispatch])
@@ -71,13 +82,22 @@ export default function ParkingLot() {
 
         if (vehicles.status === 200) {
             const data = await decryptParams(vehicles.data)
-            console.log(data);
             dispatch(setVehicles(data))
         }
     }, [dispatch])
 
+    //GET ENTRIES DATA
+    const getEntries = useCallback(async () => {
+        const entries = await axiosBase().get('/entry').catch(err => console.log("error: " + err))
+
+        if (entries.status === 200) {
+            const data = await decryptParams(entries.data)
+            dispatch(setEntries(data))
+        }
+    }, [dispatch])
+
     //HANDLES FORM ONCHANGE
-    const handleChange = async (e) => {
+    const handleChange = (e) => {
         const { name, value } = e.target
         setVehicle({
             ...vehicle,
@@ -85,24 +105,20 @@ export default function ParkingLot() {
         })
     }
 
-    //handles to generate unique vehicle id
-    const generateID = (id) => {
-
-        const isExist = _.find(car.vehicles, { id })
-
-        if (!isExist) return id
-
-        return generateID(id + 1)
-
+    //HANDLES ENTRY FORM ONCHANGE
+    const entryHandleChange = (e) => {
+        const { name, value } = e.target
+        setEntry({
+            ...entry,
+            [name]: value
+        })
     }
 
-    //handles to park vehicle
+    //HANDLES PARKING VEHICLE SUBMITION
     const handleParkSubmit = async (e) => {
         e.preventDefault()
 
         const { vehicleType, plateNo } = vehicle
-
-        console.log(vehicle);
 
         const encryptSlotData = await encryptParams(
             { vehicle: plateNo, status: "occupied" }
@@ -133,10 +149,46 @@ export default function ParkingLot() {
         }
     }
 
-    //handles to call calculate total payment and opens drawer
-    const openDetailsDrawer = (slotNumber, plateNo) => {
+    //HANDLES ADDING NEW GATE ENTRY FORM SUBMITION
+    const handleEntrySubmit = async (e) => {
+        e.preventDefault()
+        setEntryError(false)
+        setEntryErrorMessage('')
+
+        const encryptEntryData = await encryptParams(entry)
+
+        const addEntry = await axiosBase().post(`/entry`, JSON.stringify(encryptEntryData))
+            .catch(err => {
+                setEntryError(true)
+                setEntryErrorMessage(err?.response?.data)
+            })
+
+        if (addEntry?.status === 201) {
+
+            await getEntries()
+
+            setEntry({
+                nearestSlot: '',
+                entryGate: ''
+            })
+
+            setEntryModal(false)
+        }
+
+    }
+
+    //HANDLES TO CALL CALCULATE TOTAL PAYMENT AND OPENS DRAWER
+    const openDetailsDrawer = async (slotNumber, plateNo) => {
         setOpenDrawer(true)
 
+        const payment = await axiosBase().get(`/vehicle/payment/${plateNo}`)
+            .catch(err => console.log("error: " + err))
+
+        if (payment.status === 200) {
+            const data = await decryptParams(payment.data)
+            console.log(data);
+            dispatch(setCurrentSlotPayment(data))
+        }
         const vehicleInfo = _.find(car.vehicles, { plateNo: plateNo })
 
         const slotInfo = _.find(ps.slots, { slotNumber: slotNumber })
@@ -164,15 +216,74 @@ export default function ParkingLot() {
         }
     }
 
+    //OPENS ENTRY DELETION VERIFICATION MODAL
+    const openEntryDeletionModal = (entry) => {
+        dispatch(setCurrentEntry(entry))
+        setDeleteEntryModal(true)
+    }
+
+    //HANDLES ENTRY DELETION SUBMITION
+    const handleEntryDeleteSubmit = async (e) => {
+        e.preventDefault()
+
+        if (gate.entries.length <= 3) {
+            alert("You cannot have less than 3 Gate entries")
+        } else {
+
+            const deleteEntry = await axiosBase().delete(`/entry/${gate.currentEntry.id}`)
+                .catch(err => console.log("error: " + err))
+
+            if (deleteEntry.status === 200) {
+                await getEntries()
+                setDeleteEntryModal(false)
+            }
+        }
+
+    }
+
     //handles vehicle leaving and update slot status
-    const handleTemporaryLeave = () => {
-        // dispatch(markLeaveSlot(ps.currentSlot.number))
-        // dispatch(markLeaveVehicle(ps.currentSlot.carID))
-        // setOpenDrawer(false)
+    const handleTemporaryLeave = async () => {
+
+        const encryptLeaveSlotData = await encryptParams({ vehicle: ps.currentSlot.plateNo, status: "leave" })
+
+        const markLeaveSlot = await axiosBase().put(`/slot/${ps.currentSlot.id}`, JSON.stringify(encryptLeaveSlotData))
+            .catch(err => console.log("error: " + err))
+
+        const encryptLeaveVehicleData = await encryptParams({ timeIn: ps.currentSlot.timeIn, timeOut: formatISO(new Date()) })
+
+        const markLeaveVehicle = await axiosBase().put(`/vehicle/${ps.currentSlot.vehicleID}`, JSON.stringify(encryptLeaveVehicleData))
+            .catch(err => console.log("error: " + err))
+
+        if (markLeaveSlot?.status === 200 && markLeaveVehicle?.status === 200) {
+            await getSlots()
+            await getVehicles()
+            setOpenDrawer(false)
+        }
     }
 
     //handles vehicle returning and update slot status
-    const handleReturn = () => {
+    const handleReturn = async () => {
+        const encryptReturnToSlotData = await encryptParams({ vehicle: ps.currentSlot.plateNo, status: "occupied" })
+
+        const markReturnedSlot = await axiosBase().put(`/slot/${ps.currentSlot.id}`, JSON.stringify(encryptReturnToSlotData))
+            .catch(err => console.log("error: " + err))
+
+        let encryptReturnVehicleData = ''
+
+        if (differenceInHours(new Date(), parseISO(ps.currentSlot.timeOut)) > 0) {
+            encryptReturnVehicleData = await encryptParams({ timeIn: formatISO(new Date()), timeOut: "" })
+        } else {
+            encryptReturnVehicleData = await encryptParams({ timeIn: ps.currentSlot.timeIn, timeOut: "" })
+        }
+
+        const markReturnedVehicle = await axiosBase().put(`/vehicle/${ps.currentSlot.vehicleID}`, JSON.stringify(encryptReturnVehicleData))
+            .catch(err => console.log("error: " + err))
+
+        if (markReturnedSlot?.status === 200 && markReturnedVehicle?.status === 200) {
+            await getSlots()
+            await getVehicles()
+            setOpenDrawer(false)
+        }
         // dispatch(markReturnedSlot(ps.currentSlot.number))
         // dispatch(markReturnedVehicle(ps.currentSlot.carID))
         // setOpenDrawer(false)
@@ -184,9 +295,15 @@ export default function ParkingLot() {
                 <Typography className="text-gray-800 font-bold text-2xl">
                     Parking Allocation System
                 </Typography>
-                <Button onClick={() => setParkModal(true)} className="bg-[#27ae60] w-[30%]" variant="contained" color='success'>
-                    Park
-                </Button>
+                <Box className="w-[90%] flex gap-2">
+                    <Button onClick={() => setParkModal(true)} className="bg-[#27ae60] w-[50%]" variant="contained" color='success'>
+                        Park
+                    </Button>
+                    <Button onClick={() => setEntryModal(true)} className="bg-[#e1b12c] w-[50%] text-white" variant="contained" color='primary'>
+                        Add new Entry
+                    </Button>
+
+                </Box>
                 <Box className="h-[80vh] overflow-auto">
                     <ParkingLotTable vehicles={car.vehicles} openDetailsDrawer={openDetailsDrawer} />
 
@@ -194,13 +311,11 @@ export default function ParkingLot() {
             </Box>
             <Box className="flex flex-col items-start">
                 <Typography className="text-gray-800 font-bold text-2xl">Parking Lot Overview</Typography>
-                <Box className="flex justify-center items-center mt-6 bg-white p-4 rounded-lg shadow-md">
-                    <Typography className="text-2xl font-bold">A</Typography>
-                    <Box className="flex flex-col">
-                        <Typography className="text-2xl font-bold">B</Typography>
+                <Box className="flex items-start gap-3 mt-6">
+                    <Box className="flex bg-white p-4 rounded-lg shadow-md">
                         <SlotGrid slots={ps.slots} openDetailsDrawer={openDetailsDrawer} />
                     </Box>
-                    <Typography className="text-2xl font-bold">C</Typography>
+                    <EntriesTable entries={gate.entries} deleteEntry={openEntryDeletionModal} />
                 </Box>
             </Box>
 
@@ -222,9 +337,9 @@ export default function ParkingLot() {
                             value={vehicle.entry}
                             onChange={handleChange}
                         >
-                            <MenuItem value="0">A</MenuItem>
-                            <MenuItem value="1">B</MenuItem>
-                            <MenuItem value="2">C</MenuItem>
+                            {map(gate.entries, (entry) => (
+                                <MenuItem key={entry.id} value={entry.entryGate}>{entry.entryGate}</MenuItem>
+                            ))}
                         </Select>
                     </FormControl>
 
@@ -341,7 +456,7 @@ export default function ParkingLot() {
                     </Box>
 
                     <Typography className="text-xl font-bold text-gray-800 text-center">
-                        Total Payment: P0
+                        Total Payment: P{ps.currentSlot.totalPayment}
                     </Typography>
 
                     {ps.currentSlot.status === 'occupied' && <Button onClick={handleTemporaryLeave} className="bg-[#e67e22]" variant="contained" color='warning'>
@@ -358,6 +473,76 @@ export default function ParkingLot() {
 
                 </Box>
             </Drawer>
+
+            {/*  ---------------------MODAL FORM FOR ADDING NEW ENTRY----------------------*/}
+            <Modal
+                open={entryModal}
+                onClose={() => setEntryModal(false)}
+            >
+                <Box component="form" onSubmit={handleEntrySubmit} className="absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%] w-[300px] bg-white rounded-md shadow-md flex flex-col items-center gap-3 p-4">
+                    <Typography variant="h6" component="h2">
+                        Add new Entry
+                    </Typography>
+
+                    <FormControl required fullWidth margin='dense'>
+                        <InputLabel>Pick nearest slot</InputLabel>
+                        <Select
+                            name='nearestSlot'
+                            label="Pick nearest slot"
+                            value={entry.nearestSlot}
+                            onChange={entryHandleChange}
+                        >
+                            {map(ps.slots, (slot) => (
+                                <MenuItem key={slot.id} value={slot.slotNumber}>{slot.slotNumber}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
+                    <TextField error={entryError} id="outlined-basic" required fullWidth label="Entry Gate Letter/Name" variant="outlined" value={entry.entryGate} onChange={entryHandleChange} name='entryGate' />
+
+                    {entryError &&
+                        <Typography className='self-center' color='error'>
+                            {entryErrorMessage}
+                        </Typography>
+                    }
+
+                    <Button type="submit" className="bg-[#27ae60]" variant="contained" color='success'>Add Entry</Button>
+                </Box>
+
+            </Modal>
+
+            {/*  ---------------------MODAL FORM FOR DELETING ENTRY----------------------*/}
+            <Modal
+                open={deleteEntryModal}
+                onClose={() => setDeleteEntryModal(false)}
+            >
+                <Box component="form" onSubmit={handleEntryDeleteSubmit} className="absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%] w-[300px] bg-white rounded-md shadow-md flex flex-col items-center gap-3 p-4">
+                    <Typography variant="h6" component="h2">
+                        Are you sure you want to delete Entry <Box className="text-[#1abc9c] font-bold" component='span'>{gate.currentEntry.entryGate}</Box> ?
+                    </Typography>
+
+                    <Box className="flex gap-4">
+                        <Button
+                            type="submit"
+                            className="bg-[#c23616]"
+                            variant="contained"
+                            color='error'
+                        >
+                            Yes
+                        </Button>
+                        <Button
+                            onClick={() => setDeleteEntryModal(false)}
+                            className="bg-[#27ae60]"
+                            variant="contained"
+                            color='success'
+                        >
+                            No
+                        </Button>
+                    </Box>
+
+                </Box>
+
+            </Modal>
         </Box>
     )
 }
