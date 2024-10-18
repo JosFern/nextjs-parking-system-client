@@ -293,7 +293,7 @@ export default function ParkingLot() {
         <Box className="flex justify-start items-start gap-4 min-h-screen text-center text-gray-800 bg-[#f0f2f5] ">
             <Box className="flex flex-col bg-white min-h-screen gap-3 w-[400px] justify-start items-center">
                 <Typography className="text-gray-800 font-bold text-2xl">
-                    Parking Allocation System
+                    Parking System
                 </Typography>
                 <Box className="w-[90%] flex gap-2">
                     <Button onClick={() => setParkModal(true)} className="bg-[#27ae60] w-[50%]" variant="contained" color='success'>
